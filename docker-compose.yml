@@ -1,0 +1,95 @@
+version: '2.1'
+
+services:
+  rabbitmq:
+    hostname: rabbitmq
+    image: rabbitmq:alpine
+    command: rabbitmq-server
+    container_name: rabbitmq-container
+    ports:
+      - 5672:5672
+      - 15673:15672
+    healthcheck:
+      test: ['CMD', 'nc', '-z', 'localhost', '5672']
+      interval: 5s
+      timeout: 15s
+      retries: 1
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq/
+      - rabbitmq_log:/var/log/rabbitmq/
+    networks:
+      - billing_service_network
+
+  db:
+    image: mysql:8   
+    container_name: mysql-container 
+    volumes:
+      - blusalt-data:/var/lib/mysql
+    restart: always
+    environment:
+      - MYSQL_ROOT_PASSWORD=password
+      - MYSQL_PASSWORD=password
+      - MYSQL_USER=chiamaka
+      - MYSQL_DATABASE=blusalt-db
+    ports:
+      - 3307:3306
+    networks:
+      - billing_service_network
+
+  customer-service:
+    image: customer-service
+    container_name: customer-service
+    build:
+      context: ./customer-service-bls
+    depends_on:
+      db:
+        condition: service_started
+    env_file:
+      - ./env/customer-service.env
+    ports:
+      - 7001:7001
+    restart: on-failure
+    networks:
+      - billing_service_network
+
+  billing-service:
+    image: billing-service
+    container_name: billing-service
+    build:
+      context: ./billing-service-bls
+    depends_on:
+      rabbitmq:
+        condition: service_started
+      db: 
+        condition: service_started
+    env_file:
+      - ./env/billing-service.env
+    ports:
+      - 8001:8001
+    restart: on-failure
+    networks:
+      - billing_service_network
+    # command: ["./wait-for-it.sh", "mysql:3306"]
+
+  billing-worker-service:
+    image: billing-worker-service
+    container_name: billing-worker-service
+    build:
+      context: ./billing-worker-service-bls
+    depends_on:
+      rabbitmq:
+        condition: service_started
+    env_file:
+      - ./env/billing-worker-service.env
+    restart: on-failure
+    networks:
+      - billing_service_network
+
+volumes:
+  blusalt-data:
+  rabbitmq_data:
+  rabbitmq_log:
+
+networks:
+  billing_service_network:
+    driver: bridge
