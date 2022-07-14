@@ -17,3 +17,6 @@ A repo to hold all 3 services: customer-services, billing service, billing-worke
 ## REST API Documentation
 - [Postman documentation](https://documenter.getpostman.com/view/15503893/UzQrSnDJ)
 
+### Note
+This projects requires that you have Nodejs and Docker installed locally.
+
